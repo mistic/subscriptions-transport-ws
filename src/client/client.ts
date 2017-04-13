@@ -8,8 +8,8 @@ import isString = require('lodash.isstring');
 import isObject = require('lodash.isobject');
 import { ExecutionResult, print } from 'graphql';
 
-import MessageTypes from './message-types';
-import { GRAPHQL_WS } from './protocol';
+import MessageTypes from '../common/message-types';
+import { GRAPHQL_WS } from '../common/protocol';
 import { WS_TIMEOUT } from './defaults';
 
 export interface RequestOptions {

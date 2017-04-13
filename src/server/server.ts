@@ -1,7 +1,7 @@
 import * as WebSocket from 'ws';
 
-import MessageTypes from './message-types';
-import { GRAPHQL_WS } from './protocol';
+import MessageTypes from '../common/message-types';
+import { GRAPHQL_WS } from '../common/protocol';
 import { SubscriptionManager } from 'graphql-subscriptions';
 import isObject = require('lodash.isobject');
 import { getOperationAST, parse} from 'graphql';

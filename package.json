@@ -26,8 +26,8 @@
     "posttest": "npm run lint",
     "lint": "tslint ./src/**/*.ts",
     "watch": "tsc -w",
-    "testonly": "mocha --reporter spec --full-trace ./dist/test/tests.js",
-    "coverage": "node ./node_modules/istanbul/lib/cli.js cover _mocha -- --full-trace ./dist/test/tests.js",
+    "testonly": "mocha --require ./dist/test/config.js --recursive --reporter spec --full-trace dist/test",
+    "coverage": "node ./node_modules/istanbul/lib/cli.js cover _mocha -- --require ./dist/test/config.js --recursive --full-trace dist/test",
     "postcoverage": "remap-istanbul --input coverage/coverage.raw.json --type lcovonly --output coverage/lcov.info",
     "browser-compile": "webpack --config \"./unpkg-webpack.config.js\"",
     "prepublish": "npm run compile && npm run browser-compile"

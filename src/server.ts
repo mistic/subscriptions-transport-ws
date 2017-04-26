@@ -62,7 +62,6 @@ export interface Executor {
 
 export interface ServerOptions {
   rootValue?: any;
-  contextValue?: any;
   schema?: GraphQLSchema;
   executor?: Executor;
   /**
@@ -107,14 +106,13 @@ export class SubscriptionServer {
   private executor: Executor;
   private schema: GraphQLSchema;
   private rootValue: any;
-  private contextValue: any;
 
   public static create(options: ServerOptions, socketOptions: WebSocket.IServerOptions) {
     return new SubscriptionServer(options, socketOptions);
   }
 
   constructor(options: ServerOptions, socketOptions: WebSocket.IServerOptions) {
-    const {subscriptionManager, executor, schema, rootValue, contextValue, onSubscribe, onUnsubscribe, onRequest,
+    const {subscriptionManager, executor, schema, rootValue, onSubscribe, onUnsubscribe, onRequest,
       onRequestComplete, onConnect, onDisconnect, keepAlive} = options;
 
     if (!subscriptionManager || !executor) {
@@ -141,7 +139,6 @@ export class SubscriptionServer {
     this.executor = executor;
     this.schema = schema;
     this.rootValue = rootValue;
-    this.contextValue = contextValue;
     this.onSubscribe = this.defineDeprecateFunctionWrapper('onSubscribe function is deprecated. ' +
       'Use onRequest instead.');
     this.onUnsubscribe = this.defineDeprecateFunctionWrapper('onUnsubscribe function is deprecated. ' +
@@ -223,7 +220,7 @@ export class SubscriptionServer {
     if (this.executor) {
       const schema = this.schema;
       const rootValue = this.rootValue;
-      const contextValue = this.contextValue;
+      const contextValue = params.context;
       const document = parse(params.query);
       const variableValues = params.variables;
       const operationName = params.operationName;

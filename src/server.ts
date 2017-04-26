@@ -129,6 +129,10 @@ export class SubscriptionServer {
       throw new Error('Must define only execute or executeReactive function and not both.');
     }
 
+    if (executor && !schema) {
+      throw new Error('Must provide `schema` when using `executor`.');
+    }
+
     if (subscriptionManager) {
       console.warn('subscriptionManager is deprecated, use executor instead');
     }

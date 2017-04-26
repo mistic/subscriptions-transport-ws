@@ -363,8 +363,8 @@ export class SubscriptionServer {
               }
 
               // NOTE: This is a temporary code to identify if the request is a real subscription or only a query/mutation.
-              // As soon as subscription manager starts handling complete function from the observable calling  the
-              // callback function with (null, null) this can be replaced
+              // As soon as we completely drop the subscription manager and starts handling complete function
+              // from the observable, calling the callback function with (null, null), this can be replaced
               const isSubscription = this.isASubscriptionRequest(params.query, params.operationName);
 
               // Create a callback
@@ -385,8 +385,8 @@ export class SubscriptionServer {
                 }
 
                 // NOTE: This is a temporary code to identify if the request is a real subscription or only a query/mutation.
-                // As soon as subscription manager starts handling complete function from the observable calling  the
-                // callback function with (null, null) this can be replaced
+                // As soon as we completely drop the subscription manager and starts handling complete function
+                // from the observable, calling the callback function with (null, null), this can be replaced
                 if (!isSubscription) {
                   this.unsubscribe(connectionContext, reqId);
                   this.sendMessage(connectionContext, reqId, MessageTypes.GQL_COMPLETE, null);

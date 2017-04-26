@@ -4,7 +4,7 @@ import MessageTypes from './message-types';
 import { GRAPHQL_WS, GRAPHQL_SUBSCRIPTIONS } from './protocol';
 import { SubscriptionManager } from 'graphql-subscriptions';
 import isObject = require('lodash.isobject');
-import { getOperationAST, parse} from 'graphql';
+import { getOperationAST, parse, ExecutionResult, GraphQLSchema, DocumentNode } from 'graphql';
 
 type ConnectionContext = {
   initPromise?: Promise<any>,
@@ -24,8 +24,43 @@ export interface RequestMessage {
   type: string;
 }
 
+export interface IObservable<T> {
+  subscribe(observer: {
+    next?: (v: T) => void;
+    error?: (e: Error) => void;
+    complete?: () => void
+  }): { unsubscribe: () => void };
+}
+
+export type ExecuteReactiveFunction = (
+  schema: GraphQLSchema,
+  document: DocumentNode,
+  rootValue?: any,
+  contextValue?: any,
+  variableValues?: {[key: string]: any},
+  operationName?: string,
+) => IObservable<ExecutionResult>;
+
+export type ExecuteFunction = (
+  schema: GraphQLSchema,
+  document: DocumentNode,
+  rootValue?: any,
+  contextValue?: any,
+  variableValues?: {[key: string]: any},
+  operationName?: string,
+) => Promise<ExecutionResult>;
+
+export interface Executor {
+  execute?: ExecuteFunction;
+  executeReactive?: ExecuteReactiveFunction;
+}
+
 export interface ServerOptions {
-  subscriptionManager: SubscriptionManager;
+  executor?: Executor;
+  /**
+   * @deprecated subscriptionManager is deprecated, use executor instead
+   */
+  subscriptionManager?: SubscriptionManager;
   /**
    * @deprecated onSubscribe is deprecated, use onRequest instead
    */
@@ -61,19 +96,34 @@ export class SubscriptionServer {
   private onDisconnect: Function;
   private wsServer: WebSocket.Server;
   private subscriptionManager: SubscriptionManager;
+  private executor: Executor;
 
   public static create(options: ServerOptions, socketOptions: WebSocket.IServerOptions) {
     return new SubscriptionServer(options, socketOptions);
   }
 
   constructor(options: ServerOptions, socketOptions: WebSocket.IServerOptions) {
-    const {subscriptionManager, onSubscribe, onUnsubscribe, onRequest, onRequestComplete, onConnect, onDisconnect, keepAlive} = options;
+    const {subscriptionManager, executor, onSubscribe, onUnsubscribe, onRequest,
+      onRequestComplete, onConnect, onDisconnect, keepAlive} = options;
 
-    if (!subscriptionManager) {
-      throw new Error('Must provide `subscriptionManager` to websocket server constructor.');
+    if (!subscriptionManager || !executor) {
+      throw new Error('Must provide `subscriptionManager` or `executor` to websocket server constructor.');
+    }
+
+    if (subscriptionManager && executor) {
+      throw new Error('Must provide `subscriptionManager` or `executor` and not both.');
+    }
+
+    if (executor && executor.execute && executor.executeReactive) {
+      throw new Error('Must define only execute or executeReactive function and not both.');
+    }
+
+    if (subscriptionManager) {
+      console.warn('subscriptionManager is deprecated, use executor instead');
     }
 
     this.subscriptionManager = subscriptionManager;
+    this.executor = executor;
     this.onSubscribe = this.defineDeprecateFunctionWrapper('onSubscribe function is deprecated. ' +
       'Use onRequest instead.');
     this.onUnsubscribe = this.defineDeprecateFunctionWrapper('onUnsubscribe function is deprecated. ' +

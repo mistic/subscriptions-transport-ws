@@ -192,7 +192,7 @@ export class SubscriptionServer {
 
   private unsubscribe(connectionContext: ConnectionContext, reqId: string) {
     if (connectionContext.requests && connectionContext.requests[reqId]) {
-      if (this.executor) {
+      if (this.executor && this.executor.executeReactive) {
         connectionContext.requests[reqId].unsubscribe();
       } else {
         this.subscriptionManager.unsubscribe(connectionContext.requests[reqId].graphQLReqId);

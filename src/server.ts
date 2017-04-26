@@ -4,17 +4,25 @@ import MessageTypes from './message-types';
 import { GRAPHQL_WS, GRAPHQL_SUBSCRIPTIONS } from './protocol';
 import { SubscriptionManager } from 'graphql-subscriptions';
 import isObject = require('lodash.isobject');
-import { getOperationAST, parse, ExecutionResult, GraphQLSchema, DocumentNode } from 'graphql';
+import { getOperationAST, print, parse, ExecutionResult, GraphQLSchema, DocumentNode } from 'graphql';
+
+export interface IObservableSubscription {
+  unsubscribe: () => void;
+}
+export interface IObservable<T> {
+  subscribe(observer: {
+    next?: (v: T) => void;
+    error?: (e: Error) => void;
+    complete?: () => void
+  }): IObservableSubscription;
+}
 
 type ConnectionContext = {
   initPromise?: Promise<any>,
   isLegacy: boolean,
   socket: WebSocket,
   requests: {
-    [reqId: string]: {
-      graphQLReqId?: number,
-      subscription: { unsubscribe: () => void };
-    },
+    [reqId: string]: IObservableSubscription;
   },
 };
 
@@ -27,14 +35,6 @@ export interface RequestMessage {
   };
   id?: string;
   type: string;
-}
-
-export interface IObservable<T> {
-  subscribe(observer: {
-    next?: (v: T) => void;
-    error?: (e: Error) => void;
-    complete?: () => void
-  }): { unsubscribe: () => void };
 }
 
 export type ExecuteReactiveFunction = (
@@ -102,8 +102,7 @@ export class SubscriptionServer {
   private onConnect: Function;
   private onDisconnect: Function;
   private wsServer: WebSocket.Server;
-  private subscriptionManager: SubscriptionManager;
-  private executor: Executor;
+  private execute: ExecuteReactiveFunction;
   private schema: GraphQLSchema;
   private rootValue: any;
 
@@ -111,9 +110,90 @@ export class SubscriptionServer {
     return new SubscriptionServer(options, socketOptions);
   }
 
-  constructor(options: ServerOptions, socketOptions: WebSocket.IServerOptions) {
-    const {subscriptionManager, executor, schema, rootValue, onSubscribe, onUnsubscribe, onRequest,
-      onRequestComplete, onConnect, onDisconnect, keepAlive} = options;
+  // TODO: All of the adapters should actually live inside static class
+  private executeFromExecute(execute: ExecuteFunction): ExecuteReactiveFunction {
+    return (schema: GraphQLSchema,
+            document: DocumentNode,
+            rootValue?: any,
+            contextValue?: any,
+            variableValues?: {[key: string]: any},
+            operationName?: string,
+      ) => ({
+        subscribe: (observer) => {
+          // TODO: if subscription call observer.error with not supported.
+          // if (isSubscription && this.executor.execute) {
+          //    return new Promise((reject) => {
+          //      reject(`You can't use subscriptions with execute function.`);
+          //    });
+
+          execute(schema, document, rootValue, contextValue, variableValues, operationName)
+            .then((result: ExecutionResult) => {
+              observer.next(result);
+              observer.complete();
+            },
+            (e) => observer.error(e));
+
+            return {
+              unsubscribe: () => { /* Promises cannot be canceled */ },
+            };
+          },
+      });
+  }
+
+  private executeFromSubscriptionManager(subscriptionManager: SubscriptionManager): ExecuteReactiveFunction {
+    return (schema: GraphQLSchema,
+            document: DocumentNode,
+            rootValue?: any,
+            contextValue?: any,
+            variableValues?: {[key: string]: any},
+            operationName?: string,
+      ) => ({
+        subscribe: (observer) => {
+          // TODO: if query / mutation call observer.error with not supported.
+          //
+          // } else if (!isSubscription && this.subscriptionManager) {
+          //   return new Promise((reject) => {
+          //     reject(`You can't use queries/mutations with old subscriptionManager function.`);
+          //   });
+          // }
+
+          const callback = (error: Error | { errors: [ Error ] }, v: ExecutionResult) => {
+            if (error) {
+              if ( error.hasOwnProperty('errors') ) {
+                // ValidationError
+                return observer.next({ errors: (error as any).errors });
+              } else {
+                return observer.error(error as Error);
+              }
+            }
+
+            observer.next(v);
+          }
+
+          const subIdPromise = subscriptionManager.subscribe({
+            // Yeah, subscriptionManager needs it printed for some reason...
+            query: print(document),
+            operationName,
+            callback,
+            variables: variableValues,
+            context: contextValue,
+          }).then(undefined, (e: Error) => observer.error(e));
+
+          return {
+            unsubscribe: () => {
+              subIdPromise.then((reqId: number) => {
+                if ( undefined !== reqId ) {
+                  subscriptionManager.unsubscribe(reqId);
+                }
+              });
+            },
+          };
+        },
+    });
+  };
+
+  private loadExecutor(options: ServerOptions) {
+    const {subscriptionManager, executor, schema, rootValue} = options;
 
     if (!subscriptionManager || !executor) {
       throw new Error('Must provide `subscriptionManager` or `executor` to websocket server constructor.');
@@ -123,8 +203,8 @@ export class SubscriptionServer {
       throw new Error('Must provide `subscriptionManager` or `executor` and not both.');
     }
 
-    if (executor && executor.execute && executor.executeReactive) {
-      throw new Error('Must define only execute or executeReactive function and not both.');
+    if (executor && !executor.execute && !executor.executeReactive) {
+      throw new Error('Must define at least execute or executeReactive function');
     }
 
     if (executor && !schema) {
@@ -135,10 +215,22 @@ export class SubscriptionServer {
       console.warn('subscriptionManager is deprecated, use GraphQLExecutorWithSubscriptions executor instead.');
     }
 
-    this.subscriptionManager = subscriptionManager;
-    this.executor = executor;
     this.schema = schema;
     this.rootValue = rootValue;
+    if ( subscriptionManager ) {
+      this.execute = this.executeFromSubscriptionManager(subscriptionManager);
+    } else if ( executor.executeReactive ) {
+      this.execute = executor.executeReactive.bind(executor);
+    } else {
+      this.execute = this.executeFromExecute(executor.execute.bind(executor));
+    }
+  }
+
+  constructor(options: ServerOptions, socketOptions: WebSocket.IServerOptions) {
+    const {onSubscribe, onUnsubscribe, onRequest,
+      onRequestComplete, onConnect, onDisconnect, keepAlive} = options;
+
+    this.loadExecutor(options);
     this.onSubscribe = this.defineDeprecateFunctionWrapper('onSubscribe function is deprecated. ' +
       'Use onRequest instead.');
     this.onUnsubscribe = this.defineDeprecateFunctionWrapper('onUnsubscribe function is deprecated. ' +
@@ -193,76 +285,13 @@ export class SubscriptionServer {
 
   private unsubscribe(connectionContext: ConnectionContext, reqId: string) {
     if (connectionContext.requests && connectionContext.requests[reqId]) {
-      if (this.executor && this.executor.executeReactive) {
-        connectionContext.requests[reqId].subscription.unsubscribe();
-      } else {
-        this.subscriptionManager.unsubscribe(connectionContext.requests[reqId].graphQLReqId);
-      }
+      connectionContext.requests[reqId].unsubscribe();
       delete connectionContext.requests[reqId];
     }
 
     if (this.onRequestComplete) {
       this.onRequestComplete(connectionContext.socket);
     }
-  }
-
-  private subscribe(connectionContext: ConnectionContext, reqId: string, params: any, isSubscription: boolean) {
-    if (isSubscription && this.executor.execute) {
-       return new Promise((reject) => {
-         reject(`You can't use subscriptions with execute function.`);
-       });
-    } else if (!isSubscription && this.subscriptionManager) {
-      return new Promise((reject) => {
-        reject(`You can't use queries/mutations with old subscriptionManager function.`);
-      });
-    }
-
-    if (this.executor) {
-      const schema = this.schema;
-      const rootValue = this.rootValue;
-      const contextValue = params.context;
-      const document = parse(params.query);
-      const variableValues = params.variables;
-      const operationName = params.operationName;
-      if (this.executor.execute) {
-        return new Promise((resolve, reject) => {
-          this.executor.execute(schema, document, rootValue, contextValue, variableValues, operationName)
-            .then((result: ExecutionResult) => {
-              params.callback(null, result);
-              resolve();
-            })
-            .catch((e: any) => {
-              reject(e);
-            });
-        });
-      }
-
-      return new Promise((resolve, reject) => {
-        connectionContext.requests[reqId].subscription = this.executor.executeReactive(
-          schema, document, rootValue, contextValue, variableValues, operationName)
-          .subscribe({
-            next: (result: ExecutionResult) => {
-              params.callback(null, result);
-              resolve();
-            },
-            error: (e: any) => {
-              reject(e);
-            },
-            complete: () => { /* noop */ },
-          });
-      });
-    }
-
-    return new Promise((resolve, reject) => {
-      this.subscriptionManager.subscribe(params)
-        .then((graphQLReqId: number) => {
-          connectionContext.requests[reqId].graphQLReqId = graphQLReqId;
-          resolve();
-        })
-        .catch((e) => {
-          reject(e);
-        });
-    });
   }
 
   private onClose(connectionContext: ConnectionContext) {
@@ -369,38 +398,25 @@ export class SubscriptionServer {
                 throw new Error(error);
               }
 
-              // NOTE: This is a temporary code to identify if the request is a real subscription or only a query/mutation.
-              // As soon as we completely drop the subscription manager and starts handling complete function
-              // from the observable, calling the callback function with (null, null), this can be replaced
-              const isSubscription = this.isASubscriptionRequest(params.query, params.operationName);
-
-              // Create a callback
-              // Error could be a runtime exception or an object with errors
-              // Result is a GraphQL ExecutionResult, which has an optional errors property
-              params.callback = (error: any, result: any) => {
-                if (connectionContext.requests[reqId]) {
-                  if (result) {
-                    this.sendMessage(connectionContext, reqId, MessageTypes.GQL_DATA, result);
-                  }
-
-                  if (error) {
-                    const errorsToSend = error.errors ?
-                      { errors: error.errors } :
-                      { errors: [ { message: error.message } ]};
-                    this.sendMessage(connectionContext, reqId, MessageTypes.GQL_DATA, errorsToSend);
-                  }
-                }
-
-                // NOTE: This is a temporary code to identify if the request is a real subscription or only a query/mutation.
-                // As soon as we completely drop the subscription manager and starts handling complete function
-                // from the observable, calling the callback function with (null, null), this can be replaced
-                if (!isSubscription) {
-                  this.unsubscribe(connectionContext, reqId);
-                  this.sendMessage(connectionContext, reqId, MessageTypes.GQL_COMPLETE, null);
-                }
-              };
-
-              return this.subscribe(connectionContext, reqId, params, isSubscription);
+              return this.execute(this.schema,
+                parse(baseParams.query),
+                this.rootValue,
+                baseParams.context,
+                baseParams.variables,
+                baseParams.operationName)
+              .subscribe({
+                  next: (v: ExecutionResult) => {
+                    // TODO: Handle formatResponse;
+                    this.sendMessage(connectionContext, reqId, MessageTypes.GQL_DATA, v);
+                  },
+                  error: (e: Error) => {
+                    // TODO: handle formatError
+                    this.sendMessage(connectionContext, reqId, MessageTypes.GQL_ERROR, e);
+                  },
+                  complete: () => this.sendMessage(connectionContext, reqId, MessageTypes.GQL_COMPLETE, null),
+                });
+            }).then((subscription: IObservableSubscription) => {
+              connectionContext.requests[reqId] = subscription;
             }).then(() => {
               // NOTE: This is a temporary code to support the legacy protocol.
               // As soon as the old protocol has been removed, this coode should also be removed.

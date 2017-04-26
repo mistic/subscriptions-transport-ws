@@ -10,7 +10,12 @@ type ConnectionContext = {
   initPromise?: Promise<any>,
   isLegacy: boolean,
   socket: WebSocket,
-  requests: {[reqId: string]: number},
+  requests: {
+    [reqId: string]: {
+      graphQLReqId?: number,
+      unsubscribe?: any
+    },
+  },
 };
 
 export interface RequestMessage {
@@ -56,6 +61,9 @@ export interface Executor {
 }
 
 export interface ServerOptions {
+  rootValue?: any;
+  contextValue?: any;
+  schema?: GraphQLSchema;
   executor?: Executor;
   /**
    * @deprecated subscriptionManager is deprecated, use executor instead
@@ -97,13 +105,16 @@ export class SubscriptionServer {
   private wsServer: WebSocket.Server;
   private subscriptionManager: SubscriptionManager;
   private executor: Executor;
+  private schema: GraphQLSchema;
+  private rootValue: any;
+  private contextValue: any;
 
   public static create(options: ServerOptions, socketOptions: WebSocket.IServerOptions) {
     return new SubscriptionServer(options, socketOptions);
   }
 
   constructor(options: ServerOptions, socketOptions: WebSocket.IServerOptions) {
-    const {subscriptionManager, executor, onSubscribe, onUnsubscribe, onRequest,
+    const {subscriptionManager, executor, schema, rootValue, contextValue, onSubscribe, onUnsubscribe, onRequest,
       onRequestComplete, onConnect, onDisconnect, keepAlive} = options;
 
     if (!subscriptionManager || !executor) {
@@ -124,6 +135,9 @@ export class SubscriptionServer {
 
     this.subscriptionManager = subscriptionManager;
     this.executor = executor;
+    this.schema = schema;
+    this.rootValue = rootValue;
+    this.contextValue = contextValue;
     this.onSubscribe = this.defineDeprecateFunctionWrapper('onSubscribe function is deprecated. ' +
       'Use onRequest instead.');
     this.onUnsubscribe = this.defineDeprecateFunctionWrapper('onUnsubscribe function is deprecated. ' +
@@ -178,13 +192,66 @@ export class SubscriptionServer {
 
   private unsubscribe(connectionContext: ConnectionContext, reqId: string) {
     if (connectionContext.requests && connectionContext.requests[reqId]) {
-      this.subscriptionManager.unsubscribe(connectionContext.requests[reqId]);
+      if (this.executor) {
+        connectionContext.requests[reqId].unsubscribe();
+      } else {
+        this.subscriptionManager.unsubscribe(connectionContext.requests[reqId].graphQLReqId);
+      }
       delete connectionContext.requests[reqId];
     }
 
     if (this.onRequestComplete) {
       this.onRequestComplete(connectionContext.socket);
     }
+  }
+
+  private subscribe(connectionContext: ConnectionContext, reqId: string, params: any) {
+    if (this.executor) {
+      const schema = this.schema;
+      const rootValue = this.rootValue;
+      const contextValue = this.contextValue;
+      const document = parse(params.query);
+      const variableValues = params.variables;
+      const operationName = params.operationName;
+      if (this.executor.execute) {
+        return new Promise((resolve, reject) => {
+          this.executor.execute(schema, document, rootValue, contextValue, variableValues, operationName)
+            .then((result: ExecutionResult) => {
+              params.callback(null, result);
+              resolve();
+            })
+            .catch((e: any) => {
+              reject(e);
+            });
+        });
+      }
+
+      return new Promise((resolve, reject) => {
+        connectionContext.requests[reqId].unsubscribe = this.executor.executeReactive(
+          schema, document, rootValue, contextValue, variableValues, operationName)
+          .subscribe({
+            next: (result: ExecutionResult) => {
+              params.callback(null, result);
+              resolve();
+            },
+            error: (e: any) => {
+              reject(e);
+            },
+            complete: () => { /* noop */ },
+          });
+      });
+    }
+
+    return new Promise((resolve, reject) => {
+      this.subscriptionManager.subscribe(params)
+        .then((graphQLReqId: number) => {
+          connectionContext.requests[reqId].graphQLReqId = graphQLReqId;
+          resolve();
+        })
+        .catch((e) => {
+          reject(e);
+        });
+    });
   }
 
   private onClose(connectionContext: ConnectionContext) {
@@ -283,7 +350,7 @@ export class SubscriptionServer {
             // if we already have a subscription with this id, unsubscribe from it first
             this.unsubscribe(connectionContext, reqId);
 
-            promisedParams.then(params => {
+            promisedParams.then((params: any) => {
               if (typeof params !== 'object') {
                 const error = `Invalid params returned from onRequest! return values must be an object!`;
                 this.sendError(connectionContext, reqId, { message: error });
@@ -321,14 +388,13 @@ export class SubscriptionServer {
                   this.sendMessage(connectionContext, reqId, MessageTypes.GQL_COMPLETE, null);
                 }
               };
-              return this.subscriptionManager.subscribe(params);
-            }).then((graphqlReqId: number) => {
-              connectionContext.requests[reqId] = graphqlReqId;
+
+              return this.subscribe(connectionContext, reqId, params);
             }).then(() => {
               // NOTE: This is a temporary code to support the legacy protocol.
               // As soon as the old protocol has been removed, this coode should also be removed.
               this.sendMessage(connectionContext, reqId, MessageTypes.SUBSCRIPTION_SUCCESS, undefined);
-            }).catch(e => {
+            }).catch((e: any) => {
               if (e.errors) {
                 this.sendMessage(connectionContext, reqId, MessageTypes.GQL_DATA, { errors: e.errors });
               } else {

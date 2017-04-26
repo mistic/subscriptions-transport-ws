@@ -132,7 +132,7 @@ export class SubscriptionServer {
     }
 
     if (subscriptionManager) {
-      console.warn('subscriptionManager is deprecated, use executor instead');
+      console.warn('subscriptionManager is deprecated, use GraphQLExecutorWithSubscriptions executor instead.');
     }
 
     this.subscriptionManager = subscriptionManager;

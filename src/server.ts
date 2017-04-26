@@ -355,7 +355,6 @@ export class SubscriptionServer {
               formatError: <any>undefined,
               callback: <any>undefined,
             };
-
             let promisedParams = Promise.resolve(baseParams);
 
             if (this.onRequest) {

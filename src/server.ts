@@ -209,7 +209,17 @@ export class SubscriptionServer {
     }
   }
 
-  private subscribe(connectionContext: ConnectionContext, reqId: string, params: any) {
+  private subscribe(connectionContext: ConnectionContext, reqId: string, params: any, isSubscription: boolean) {
+    if (isSubscription && this.executor.execute) {
+       return new Promise((reject) => {
+         reject(`You can't use subscriptions with execute function.`);
+       });
+    } else if (!isSubscription && this.subscriptionManager) {
+      return new Promise((reject) => {
+        reject(`You can't use queries/mutations with old subscriptionManager function.`);
+      });
+    }
+
     if (this.executor) {
       const schema = this.schema;
       const rootValue = this.rootValue;
@@ -345,6 +355,7 @@ export class SubscriptionServer {
               formatError: <any>undefined,
               callback: <any>undefined,
             };
+
             let promisedParams = Promise.resolve(baseParams);
 
             if (this.onRequest) {
@@ -393,7 +404,7 @@ export class SubscriptionServer {
                 }
               };
 
-              return this.subscribe(connectionContext, reqId, params);
+              return this.subscribe(connectionContext, reqId, params, isSubscription);
             }).then(() => {
               // NOTE: This is a temporary code to support the legacy protocol.
               // As soon as the old protocol has been removed, this coode should also be removed.

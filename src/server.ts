@@ -13,7 +13,7 @@ type ConnectionContext = {
   requests: {
     [reqId: string]: {
       graphQLReqId?: number,
-      unsubscribe?: any
+      subscription: { unsubscribe: () => void };
     },
   },
 };
@@ -197,7 +197,7 @@ export class SubscriptionServer {
   private unsubscribe(connectionContext: ConnectionContext, reqId: string) {
     if (connectionContext.requests && connectionContext.requests[reqId]) {
       if (this.executor && this.executor.executeReactive) {
-        connectionContext.requests[reqId].unsubscribe();
+        connectionContext.requests[reqId].subscription.unsubscribe();
       } else {
         this.subscriptionManager.unsubscribe(connectionContext.requests[reqId].graphQLReqId);
       }
@@ -241,7 +241,7 @@ export class SubscriptionServer {
       }
 
       return new Promise((resolve, reject) => {
-        connectionContext.requests[reqId].unsubscribe = this.executor.executeReactive(
+        connectionContext.requests[reqId].subscription = this.executor.executeReactive(
           schema, document, rootValue, contextValue, variableValues, operationName)
           .subscribe({
             next: (result: ExecutionResult) => {

@@ -210,10 +210,8 @@ export class SubscriptionClient {
     if (Array.isArray(errors)) {
       return errors;
     }
-    if (errors && errors.message) {
-      return [errors];
-    }
-    return [{ message: 'Unknown error' }];
+
+    return [errors];
   }
 
   private sendMessage(id: number, type: string, payload: any) {

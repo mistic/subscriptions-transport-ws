@@ -6,7 +6,9 @@ import * as Backoff from 'backo2';
 import { EventEmitter, ListenerFn } from 'eventemitter3';
 import isString = require('lodash.isstring');
 import isObject = require('lodash.isobject');
-import { ExecutionResult, print, getOperationAST } from 'graphql';
+import { ExecutionResult } from 'graphql/execution/execute';
+import { print } from 'graphql/language/printer';
+import { getOperationAST } from 'graphql/utilities/getOperationAST';
 
 import MessageTypes from './message-types';
 import { GRAPHQL_WS } from './protocol';

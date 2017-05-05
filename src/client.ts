@@ -108,24 +108,24 @@ export class SubscriptionClient {
       };
 
       // NOTE: as soon as we move into observables, we don't need to wait GQL_COMPLETE for queries and mutations
-      this.executeRequest(options, handler);
+      this.executeOperation(options, handler);
     });
   }
 
   public subscribe(options: OperationOptions, handler: (error: Error[], result?: any) => void) {
     const legacyHandler = (error: Error[], result?: any) => {
-      let requestPayloadData = result.data || null;
-      let requestPayloadErrors = result.errors  || null;
+      let operationPayloadData = result.data || null;
+      let operationPayloadErrors = result.errors  || null;
 
       if (error) {
-        requestPayloadErrors = error;
-        requestPayloadData = null;
+        operationPayloadErrors = error;
+        operationPayloadData = null;
       }
 
-      handler(requestPayloadErrors, requestPayloadData);
+      handler(operationPayloadErrors, operationPayloadData);
     };
 
-    return this.executeRequest(options, legacyHandler);
+    return this.executeOperation(options, legacyHandler);
   }
 
   public on(eventName: string, callback: ListenerFn, context?: any): Function {
@@ -161,7 +161,7 @@ export class SubscriptionClient {
     });
   }
 
-  private executeRequest(options: OperationOptions, handler: (error: Error[], result?: any) => void): number {
+  private executeOperation(options: OperationOptions, handler: (error: Error[], result?: any) => void): number {
     const { query, variables, operationName } = options;
 
     if (!query) {
@@ -275,7 +275,7 @@ export class SubscriptionClient {
 
   private flushUnsentMessagesQueue() {
     this.unsentMessagesQueue.forEach((message) => {
-      this.client.send(JSON.stringify(message));
+      this.sendMessageRaw(message);
     });
     this.unsentMessagesQueue = [];
   }

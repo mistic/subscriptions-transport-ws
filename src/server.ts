@@ -541,7 +541,7 @@ export class SubscriptionServer {
     if ([
         MessageTypes.GQL_CONNECTION_ERROR,
         MessageTypes.GQL_ERROR,
-      ].indexOf(overrideDefaultErrorType) === -1) {
+      ].indexOf(sanitizedOverrideDefaultErrorType) === -1) {
       throw new Error('overrideDefaultErrorType should be one of the allowed error messages' +
         ' GQL_CONNECTION_ERROR or GQL_ERROR');
     }

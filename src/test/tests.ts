@@ -898,6 +898,8 @@ describe('Server', function () {
 
   it('should send correct results to multiple clients with subscriptions', function (done) {
     const client = new SubscriptionClient(`ws://localhost:${TEST_PORT}/`);
+    let client1 = new SubscriptionClient(`ws://localhost:${TEST_PORT}/`);
+
     let numResults = 0;
     setTimeout(() => {
       client.subscribe({
@@ -964,7 +966,7 @@ describe('Server', function () {
     setTimeout(() => {
       client.unsubscribeAll();
       expect(numResults).to.equals(1);
-      client11.unsubscribeAll();
+      client1.unsubscribeAll();
       expect(numResults1).to.equals(1);
       done();
     }, 300);
@@ -1125,7 +1127,7 @@ describe('Server', function () {
       done();
     }, 150);
     client4.client.onmessage = (message: any) => {
-      if (JSON.parse(message.data).type === MessageTypes.SUBSCRIPTION_DATA) {
+      if (JSON.parse(message.data).type === MessageTypes.GQL_DATA) {
         assert(false);
       }
     };

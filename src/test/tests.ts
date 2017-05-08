@@ -30,7 +30,7 @@ import {
 import {createServer, IncomingMessage, ServerResponse} from 'http';
 import {SubscriptionServer} from '../server';
 import {SubscriptionClient} from '../client';
-import {RequestMessage} from '../server';
+import {OperationMessage} from '../server';
 import {SubscriptionOptions} from 'graphql-subscriptions/dist/pubsub';
 
 const TEST_PORT = 4953;
@@ -127,21 +127,21 @@ const subscriptionManager = new SubscriptionManager({
 
 // indirect call to support spying
 const handlers = {
-  onSubscribe: (msg: RequestMessage, params: SubscriptionOptions, webSocketRequest: WebSocket) => {
+  onSubscribe: (msg: OperationMessage, params: SubscriptionOptions, webSocketRequest: WebSocket) => {
     return Promise.resolve(Object.assign({}, params, {context: msg.payload['context']}));
   },
 };
 
 const options = {
   subscriptionManager,
-  onSubscribe: (msg: RequestMessage, params: SubscriptionOptions, webSocketRequest: WebSocket) => {
+  onSubscribe: (msg: OperationMessage, params: SubscriptionOptions, webSocketRequest: WebSocket) => {
     return handlers.onSubscribe(msg, params, webSocketRequest);
   },
 };
 
 const eventsOptions = {
   subscriptionManager,
-  onSubscribe: sinon.spy((msg: RequestMessage, params: SubscriptionOptions, webSocketRequest: WebSocket) => {
+  onSubscribe: sinon.spy((msg: OperationMessage, params: SubscriptionOptions, webSocketRequest: WebSocket) => {
     return Promise.resolve(Object.assign({}, params, {context: msg.payload['context']}));
   }),
   onUnsubscribe: sinon.spy(),
@@ -182,7 +182,7 @@ new SubscriptionServer(onConnectErrorOptions, {server: httpServerWithOnConnectEr
 const httpServerWithDelay = createServer(notFoundRequestListener);
 httpServerWithDelay.listen(DELAYED_TEST_PORT);
 new SubscriptionServer(Object.assign({}, options, {
-  onSubscribe: (msg: RequestMessage, params: SubscriptionOptions) => {
+  onSubscribe: (msg: OperationMessage, params: SubscriptionOptions) => {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
         resolve(Object.assign({}, params, {context: msg.payload['context']}));
@@ -1214,7 +1214,7 @@ describe('Server', function () {
   it('handles errors prior to graphql execution', function (done) {
     // replace the onSubscribeSpy with a custom handler, the spy will restore
     // the original method
-    handlers.onSubscribe = (msg: RequestMessage, params: SubscriptionOptions, webSocketRequest: WebSocket) => {
+    handlers.onSubscribe = (msg: OperationMessage, params: SubscriptionOptions, webSocketRequest: WebSocket) => {
       return Promise.resolve(Object.assign({}, params, {
         context: () => {
           throw new Error('bad');

@@ -898,8 +898,6 @@ describe('Server', function () {
 
   it('should send correct results to multiple clients with subscriptions', function (done) {
     const client = new SubscriptionClient(`ws://localhost:${TEST_PORT}/`);
-    let client1 = new SubscriptionClient(`ws://localhost:${TEST_PORT}/`);
-
     let numResults = 0;
     setTimeout(() => {
       client.subscribe({
@@ -966,20 +964,20 @@ describe('Server', function () {
     setTimeout(() => {
       client.unsubscribeAll();
       expect(numResults).to.equals(1);
-      client1.unsubscribeAll();
+      client11.unsubscribeAll();
       expect(numResults1).to.equals(1);
       done();
     }, 300);
 
   });
 
-  it('should send a subscription_fail message to client with invalid query', function (done) {
+  it('should send a gql_error message to client with invalid query', function (done) {
     const client1 = new SubscriptionClient(`ws://localhost:${TEST_PORT}/`);
     setTimeout(function () {
       client1.client.onmessage = (message: any) => {
         let messageData = JSON.parse(message.data);
-        assert.equal(messageData.type, MessageTypes.SUBSCRIPTION_FAIL);
-        assert.isAbove(messageData.payload.errors.length, 0, 'Number of errors is greater than 0.');
+        assert.equal(messageData.type, MessageTypes.GQL_ERROR);
+        assert.isDefined(messageData.payload, 'Number of errors is greater than 0.');
         done();
       };
       client1.subscribe({
@@ -1160,8 +1158,8 @@ describe('Server', function () {
     const client = new WebSocket(`ws://localhost:${TEST_PORT}/`, GRAPHQL_SUBSCRIPTIONS);
     client.onmessage = (message: any) => {
       let messageData = JSON.parse(message.data);
-      assert.equal(messageData.type, MessageTypes.SUBSCRIPTION_FAIL);
-      assert.isAbove(messageData.payload.errors.length, 0, 'Number of errors is greater than 0.');
+      assert.equal(messageData.type, MessageTypes.GQL_CONNECTION_ERROR);
+      assert.isDefined(messageData.payload, 'Number of errors is greater than 0.');
       client.close();
       done();
     };
@@ -1174,8 +1172,8 @@ describe('Server', function () {
     const client = new WebSocket(`ws://localhost:${TEST_PORT}/`, GRAPHQL_SUBSCRIPTIONS);
     client.onmessage = (message: any) => {
       let messageData = JSON.parse(message.data);
-      assert.equal(messageData.type, MessageTypes.SUBSCRIPTION_FAIL);
-      assert.isAbove(messageData.payload.errors.length, 0, 'Number of errors is greater than 0.');
+      assert.equal(messageData.type, MessageTypes.GQL_ERROR);
+      assert.isDefined(messageData.payload, 'Number of errors is greater than 0.');
       client.close();
       done();
     };
@@ -1189,7 +1187,7 @@ describe('Server', function () {
     const client = new WebSocket(`ws://localhost:${TEST_PORT}/`, GRAPHQL_SUBSCRIPTIONS);
 
     client.onopen = () => {
-      client.send(JSON.stringify({type: MessageTypes.SUBSCRIPTION_END, id: 'toString'}));
+      client.send(JSON.stringify({type: MessageTypes.GQL_STOP, id: 'toString'}));
       // Strangely we don't send any acknowledgement for unsubbing from an
       // unknown sub, so we just set a timeout and implicitly assert that
       // there's no uncaught exception within the server code.

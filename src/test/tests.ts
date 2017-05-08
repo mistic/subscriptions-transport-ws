@@ -846,7 +846,7 @@ describe('Server', function () {
     }, 500);
 
     setTimeout(() => {
-      assert(spy.calledOnce);
+      assert(spy.calledTwice);
       done();
     }, 1000);
   });

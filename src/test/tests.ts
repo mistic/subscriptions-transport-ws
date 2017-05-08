@@ -843,7 +843,7 @@ describe('Server', function () {
     setTimeout(() => {
       assert(spy.calledOnce);
       done();
-    }, 5000);
+    }, 1000);
   });
 
   it('should trigger onSubscribe when client subscribes', (done) => {

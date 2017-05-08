@@ -337,8 +337,8 @@ export class SubscriptionClient {
         MessageTypes.GQL_ERROR,
       ].indexOf(parsedMessage.type) !== -1 && !this.operations[opId]
     ) {
-
       this.unsubscribe(opId);
+      return;
     }
 
     switch (parsedMessage.type) {

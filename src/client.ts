@@ -116,8 +116,8 @@ export class SubscriptionClient {
 
   public subscribe(options: OperationOptions, handler: (error: Error[], result?: any) => void) {
     const legacyHandler = (error: Error[], result?: any) => {
-      let operationPayloadData = result.data || null;
-      let operationPayloadErrors = result.errors  || null;
+      let operationPayloadData = result && result.data || null;
+      let operationPayloadErrors = result && result.errors  || null;
 
       if (error) {
         operationPayloadErrors = error;
@@ -126,6 +126,10 @@ export class SubscriptionClient {
 
       handler(operationPayloadErrors, operationPayloadData);
     };
+
+    if (!handler) {
+      throw new Error('Must provide an handler.');
+    }
 
     return this.executeOperation(options, legacyHandler);
   }
@@ -211,7 +215,11 @@ export class SubscriptionClient {
       return errors;
     }
 
-    return [errors];
+    if (errors && errors.message) {
+      return [errors];
+    }
+
+    return [{ message: 'Unknown error'}, errors];
   }
 
   private sendMessage(id: number, type: string, payload: any) {

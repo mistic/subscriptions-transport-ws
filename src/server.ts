@@ -426,7 +426,7 @@ export class SubscriptionServer {
                       }
                     }
 
-                    this.sendMessage(connectionContext, reqId, MessageTypes.GQL_ERROR, error);
+                    this.sendError(connectionContext, reqId, error);
                   },
                   complete: () => this.sendMessage(connectionContext, reqId, MessageTypes.GQL_COMPLETE, null),
                 });
@@ -450,7 +450,7 @@ export class SubscriptionServer {
           });
           break;
 
-        case MessageTypes.GQL_END:
+        case MessageTypes.GQL_STOP:
           connectionContext.initPromise.then(() => {
             // Find subscription id. Call unsubscribe.
             this.unsubscribe(connectionContext, reqId);
@@ -484,7 +484,7 @@ export class SubscriptionServer {
         };
         break;
       case MessageTypes.SUBSCRIPTION_END:
-        messageToReturn = { ...message, type: MessageTypes.GQL_END };
+        messageToReturn = { ...message, type: MessageTypes.GQL_STOP };
         break;
       case MessageTypes.GQL_CONNECTION_ACK:
         if (connectionContext.isLegacy) {
@@ -541,7 +541,7 @@ export class SubscriptionServer {
     if ([
         MessageTypes.GQL_CONNECTION_ERROR,
         MessageTypes.GQL_ERROR,
-      ].indexOf(overrideDefaultErrorType) === -1) {
+      ].indexOf(sanitizedOverrideDefaultErrorType) === -1) {
       throw new Error('overrideDefaultErrorType should be one of the allowed error messages' +
         ' GQL_CONNECTION_ERROR or GQL_ERROR');
     }

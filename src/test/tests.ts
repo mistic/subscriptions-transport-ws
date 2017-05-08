@@ -604,7 +604,7 @@ describe('Client', function () {
 
   it('should throw an error when the susbcription times out', function (done) {
     // TODO
-    // THIS TEST IS NO LONGER NEEDED. DO U AGREE HAGAICO?
+    // This test is no longer needed. Do u agree Hagaico?
 
     /*
     // hopefully 1ms is fast enough to time out before the server responds
@@ -846,7 +846,7 @@ describe('Server', function () {
     }, 500);
 
     setTimeout(() => {
-      assert(spy.calledTwice);
+      assert(spy.calledOnce);
       done();
     }, 1000);
   });
@@ -893,7 +893,15 @@ describe('Server', function () {
       //do nothing
     });
 
-    client.unsubscribe(subId);
+    setTimeout(() => {
+      // TODO
+      // Hagaico I had the need to add this timeout here
+      // otherwhise unsubscribe happens before subscribe completes on server side
+      // so onSubscribe isn't called
+      //
+      // Can u check this test please?
+      client.unsubscribe(subId);
+    }, 100);
 
     setTimeout(() => {
       assert(eventsOptions.onUnsubscribe.calledOnce);

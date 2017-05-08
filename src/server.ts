@@ -285,10 +285,10 @@ export class SubscriptionServer {
     if (connectionContext.operations && connectionContext.operations[opId]) {
       connectionContext.operations[opId].unsubscribe();
       delete connectionContext.operations[opId];
-    }
 
-    if (this.onOperationComplete) {
-      this.onOperationComplete(connectionContext.socket);
+      if (this.onOperationComplete) {
+        this.onOperationComplete(connectionContext.socket);
+      }
     }
   }
 
@@ -384,7 +384,9 @@ export class SubscriptionServer {
             }
 
             // if we already have a subscription with this id, unsubscribe from it first
-            this.unsubscribe(connectionContext, opId);
+            if (connectionContext.operations && connectionContext.operations[opId]) {
+              this.unsubscribe(connectionContext, opId);
+            }
 
             promisedParams.then((params: any) => {
               if (typeof params !== 'object') {

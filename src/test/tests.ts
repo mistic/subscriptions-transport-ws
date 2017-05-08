@@ -615,18 +615,10 @@ describe('Client', function () {
         variables: {},
       }, function (error: any, result: any) {
         if (error) {
-          // tslint:disable-next-line
-          console.log(error);
-          // tslint:disable-next-line
-          console.log(result);
           expect(error[0].message).to.equals('Subscription timed out - no response from server');
           done();
         }
         if (result) {
-          // tslint:disable-next-line
-          console.log(error);
-          // tslint:disable-next-line
-          console.log(result);
           assert(false);
         }
       });

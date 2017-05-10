@@ -23,6 +23,10 @@ export interface OperationOptions {
   context?: any;
 }
 
+export type FormatedError = Error & {
+  originalError?: any;
+}
+
 export interface Operation {
   options: OperationOptions;
   handler: (error: Error[], result?: any) => void;
@@ -210,16 +214,25 @@ export class SubscriptionClient {
   }
 
   // ensure we have an array of errors
-  private formatErrors(errors: any) {
+  private formatErrors(errors: any): FormatedError[] {
     if (Array.isArray(errors)) {
       return errors;
+    }
+
+    // ValidationError
+    if (errors && errors.errors) {
+      return this.formatErrors(errors.errors);
     }
 
     if (errors && errors.message) {
       return [errors];
     }
 
-    return [{ message: 'Unknown error'}, errors];
+    return [{
+      name: 'FormatedError',
+      message: 'Unknown error',
+      originalError: errors
+    }];
   }
 
   private sendMessage(id: number, type: string, payload: any) {

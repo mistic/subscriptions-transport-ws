@@ -128,14 +128,9 @@ class ExecuteAdapters {
           };
         }
 
-        const callback = (error: Error | { errors: [ Error ] }, v: ExecutionResult) => {
+        const callback = (error: Error, v: ExecutionResult) => {
           if (error) {
-            if ( error.hasOwnProperty('errors') ) {
-              // ValidationError
-              return observer.next({ errors: (error as any).errors });
-            } else {
-              return observer.error(error as Error);
-            }
+            return observer.error(error);
           }
           observer.next(v);
         };
@@ -426,6 +421,11 @@ export class SubscriptionServer {
                       } catch (err) {
                         console.error('Error in formatError function:', err);
                       }
+                    }
+
+                    // plain errors cannot be JSON stringified.
+                    if ( Object.keys(e).length === 0 ) {
+                      error = { name: e.name, message: e.message };
                     }
 
                     this.sendError(connectionContext, opId, error);

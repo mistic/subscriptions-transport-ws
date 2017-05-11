@@ -6,7 +6,7 @@
 
 ### 0.6.0
 - Protocol update to support queries, mutations and also subscriptions. [PR #108](https://github.com/apollographql/subscriptions-transport-ws/pull/108)
-- Added support in the server GraphQL Executor. [PR #108](https://github.com/apollographql/subscriptions-transport-ws/pull/108)
+- Added support in the server for GraphQL Executor. [PR #108](https://github.com/apollographql/subscriptions-transport-ws/pull/108)
 
 ### 0.5.5
 

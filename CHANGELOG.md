@@ -4,6 +4,10 @@
 
 - Enabled Greenkeeper and updated dependencies, includes major version bump of ws [PR #90](https://github.com/apollographql/subscriptions-transport-ws/pull/90)
 
+### 0.6.0
+- Protocol update to support queries, mutations and also subscriptions. [PR #108](https://github.com/apollographql/subscriptions-transport-ws/pull/108)
+- Added support in the server GraphQL Executor. [PR #108](https://github.com/apollographql/subscriptions-transport-ws/pull/108)
+
 ### 0.5.5
 
 - Remove dependency on `graphql-tag/printer` per [graphql-tag#54](https://github.com/apollographql/graphql-tag/issues/54) [PR #98](https://github.com/apollographql/subscriptions-transport-ws/pull/98)

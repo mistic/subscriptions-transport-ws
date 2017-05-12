@@ -112,11 +112,12 @@ class ExecuteAdapters {
           }
 
           let subscription: any;
+          let immediateAction: any;
 
           try {
             subscription = subscribeFn(schema, document, rootValue, contextValue, variableValues, operationName);
 
-            setImmediate(async () => {
+            immediateAction = setImmediate(async () => {
               try {
                 for await (let result of subscription) {
                   observer.next(result);
@@ -132,7 +133,15 @@ class ExecuteAdapters {
           }
 
           return {
-            unsubscribe: () => subscription && subscription.return(),
+            unsubscribe: () => {
+              if (subscription) {
+                subscription.return()
+              }
+
+              if (immediateAction) {
+                clearImmediate(immediateAction);
+              }
+            },
           };
 
         } else {

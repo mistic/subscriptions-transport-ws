@@ -58,9 +58,19 @@ export type ExecuteFunction = (
   operationName?: string,
 ) => Promise<ExecutionResult>;
 
+export type SubscribeFunction = (
+  schema: GraphQLSchema,
+  document: DocumentNode,
+  rootValue?: any,
+  contextValue?: any,
+  variableValues?: {[key: string]: any},
+  operationName?: string,
+) => AsyncIterator<ExecutionResult>;
+
 export interface Executor {
   execute?: ExecuteFunction;
   executeReactive?: ExecuteReactiveFunction;
+  subscribe?: SubscribeFunction;
 }
 
 export interface ServerOptions {
@@ -155,6 +165,50 @@ class ExecuteAdapters {
               }
             });
           },
+        };
+      },
+    });
+  }
+
+  public static executeFromSubscribe(subscribeFn: SubscribeFunction): ExecuteReactiveFunction {
+    return (schema: GraphQLSchema,
+            document: DocumentNode,
+            rootValue?: any,
+            contextValue?: any,
+            variableValues?: { [key: string]: any },
+            operationName?: string,
+    ) => ({
+      subscribe: observer => {
+        if (!ExecuteAdapters.isASubscriptionOperation(document, operationName)) {
+          observer.error(new Error('Queries or mutations are not supported'));
+
+          return {
+            unsubscribe: () => { /* Empty unsubscribe method */ },
+          };
+        }
+
+        let subscription: any;
+
+        try {
+          subscription = subscribeFn(schema, document, rootValue, contextValue, variableValues, operationName);
+
+          setImmediate(async () => {
+            try {
+              for await (let result of subscription) {
+                observer.next(result);
+              }
+            } catch (e) {
+              observer.error(e);
+            }
+
+            observer.complete();
+          });
+        } catch (e) {
+          observer.error(e);
+        }
+
+        return {
+          unsubscribe: () => subscription && subscription.return(),
         };
       },
     });
@@ -256,8 +310,8 @@ export class SubscriptionServer {
       throw new Error('Must provide `subscriptionManager` or `executor` and not both.');
     }
 
-    if (executor && !executor.execute && !executor.executeReactive) {
-      throw new Error('Must define at least execute or executeReactive function');
+    if (executor && !executor.execute && !executor.executeReactive && !executor.subscribe) {
+      throw new Error('Must define at least execute, executeReactive or subscribe function');
     }
 
     if (executor && !schema) {
@@ -274,6 +328,8 @@ export class SubscriptionServer {
       this.execute = ExecuteAdapters.executeFromSubscriptionManager(subscriptionManager);
     } else if ( executor.executeReactive ) {
       this.execute = executor.executeReactive.bind(executor);
+    } else if ( executor.subscribe ) {
+      this.execute = ExecuteAdapters.executeFromSubscribe(executor.subscribe.bind(executor));
     } else {
       this.execute = ExecuteAdapters.executeFromExecute(executor.execute.bind(executor));
     }

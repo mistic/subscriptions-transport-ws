@@ -605,7 +605,7 @@ export class SubscriptionServer {
       payload,
     });
 
-    if (parsedMessage) {
+    if (parsedMessage && connectionContext.socket.readyState === WebSocket.OPEN) {
       connectionContext.socket.send(JSON.stringify(parsedMessage));
     }
   }

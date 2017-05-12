@@ -106,7 +106,7 @@ class ExecuteAdapters {
             operationName?: string,
     ) => ({
       subscribe: (observer) => {
-        if (ExecuteAdapters.isASubscriptionOperation(document, operationName) && !subscribeFn) {
+        if (ExecuteAdapters.isASubscriptionOperation(document, operationName)) {
           if (!subscribeFn) {
             observer.error(new Error('Subscriptions are not supported'));
           }

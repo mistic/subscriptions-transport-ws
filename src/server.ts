@@ -97,7 +97,7 @@ export interface ServerOptions {
 }
 
 class ExecuteAdapters {
-  public static executeFromExecute(execute: ExecuteFunction): ExecuteReactiveFunction {
+  public static executeFromExecute(execute: ExecuteFunction, subscribeFn?: SubscribeFunction): ExecuteReactiveFunction {
     return (schema: GraphQLSchema,
             document: DocumentNode,
             rootValue?: any,
@@ -106,8 +106,35 @@ class ExecuteAdapters {
             operationName?: string,
     ) => ({
       subscribe: (observer) => {
-        if (ExecuteAdapters.isASubscriptionOperation(document, operationName)) {
-          observer.error(new Error('Subscriptions are not supported'));
+        if (ExecuteAdapters.isASubscriptionOperation(document, operationName) && !subscribeFn) {
+          if (!subscribeFn) {
+            observer.error(new Error('Subscriptions are not supported'));
+          }
+
+          let subscription: any;
+
+          try {
+            subscription = subscribeFn(schema, document, rootValue, contextValue, variableValues, operationName);
+
+            setImmediate(async () => {
+              try {
+                for await (let result of subscription) {
+                  observer.next(result);
+                }
+              } catch (e) {
+                observer.error(e);
+              }
+
+              observer.complete();
+            });
+          } catch (e) {
+            observer.error(e);
+          }
+
+          return {
+            unsubscribe: () => subscription && subscription.return(),
+          };
+
         } else {
           execute(schema, document, rootValue, contextValue, variableValues, operationName)
             .then((result: ExecutionResult) => {
@@ -115,11 +142,11 @@ class ExecuteAdapters {
                 observer.complete();
               },
               (e) => observer.error(e));
-        }
 
-        return {
-          unsubscribe: () => { /* Promises cannot be canceled */ },
-        };
+          return {
+            unsubscribe: () => { /* Promises cannot be canceled */ },
+          };
+        }
       },
     });
   }
@@ -165,50 +192,6 @@ class ExecuteAdapters {
               }
             });
           },
-        };
-      },
-    });
-  }
-
-  public static executeFromSubscribe(subscribeFn: SubscribeFunction): ExecuteReactiveFunction {
-    return (schema: GraphQLSchema,
-            document: DocumentNode,
-            rootValue?: any,
-            contextValue?: any,
-            variableValues?: { [key: string]: any },
-            operationName?: string,
-    ) => ({
-      subscribe: observer => {
-        if (!ExecuteAdapters.isASubscriptionOperation(document, operationName)) {
-          observer.error(new Error('Queries or mutations are not supported'));
-
-          return {
-            unsubscribe: () => { /* Empty unsubscribe method */ },
-          };
-        }
-
-        let subscription: any;
-
-        try {
-          subscription = subscribeFn(schema, document, rootValue, contextValue, variableValues, operationName);
-
-          setImmediate(async () => {
-            try {
-              for await (let result of subscription) {
-                observer.next(result);
-              }
-            } catch (e) {
-              observer.error(e);
-            }
-
-            observer.complete();
-          });
-        } catch (e) {
-          observer.error(e);
-        }
-
-        return {
-          unsubscribe: () => subscription && subscription.return(),
         };
       },
     });
@@ -328,10 +311,8 @@ export class SubscriptionServer {
       this.execute = ExecuteAdapters.executeFromSubscriptionManager(subscriptionManager);
     } else if ( executor.executeReactive ) {
       this.execute = executor.executeReactive.bind(executor);
-    } else if ( executor.subscribe ) {
-      this.execute = ExecuteAdapters.executeFromSubscribe(executor.subscribe.bind(executor));
     } else {
-      this.execute = ExecuteAdapters.executeFromExecute(executor.execute.bind(executor));
+      this.execute = ExecuteAdapters.executeFromExecute(executor.execute.bind(executor), executor.subscribe.bind(executor));
     }
   }
 

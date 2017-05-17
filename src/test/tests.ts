@@ -1,6 +1,6 @@
 // chai style expect().to.be.true violates no-unused-expression
 /* tslint:disable:no-unused-expression */
-
+/* tslint:disable */
 import 'mocha';
 import {
   assert,
@@ -1497,3 +1497,4 @@ describe('Message Types', function () {
     done();
   });
 });
+/* tslint:enable */

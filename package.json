@@ -31,7 +31,7 @@
     "postcoverage": "remap-istanbul --input coverage/coverage.raw.json --type lcovonly --output coverage/lcov.info",
     "browser-compile": "webpack --config \"./unpkg-webpack.config.js\"",
     "prepublish": "npm run compile && npm run browser-compile && rimraf src",
-    "preinstall": "npm run compile && npm run browser-compile"
+    "postinstall": "npm run compile && npm run browser-compile"
   },
   "devDependencies": {
     "@types/chai": "^3.5.1",

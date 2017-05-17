@@ -30,7 +30,7 @@
     "coverage": "node ./node_modules/istanbul/lib/cli.js cover _mocha -- --full-trace ./dist/test/tests.js",
     "postcoverage": "remap-istanbul --input coverage/coverage.raw.json --type lcovonly --output coverage/lcov.info",
     "browser-compile": "webpack --config \"./unpkg-webpack.config.js\"",
-    "prepublish": "npm run compile && npm run browser-compile",
+    "prepublish": "npm run compile && npm run browser-compile && rimraf src",
     "preinstall": "npm run compile && npm run browser-compile"
   },
   "devDependencies": {
@@ -45,6 +45,7 @@
     "lodash": "^4.17.1",
     "mocha": "^3.3.0",
     "remap-istanbul": "^0.9.5",
+    "rimraf": "^2.6.1",
     "sinon": "^2.1.0",
     "tslint": "^5.1.0",
     "typescript": "^2.3.0",

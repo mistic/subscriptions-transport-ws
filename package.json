@@ -23,8 +23,6 @@
     "compile": "tsc",
     "pretest": "npm run compile",
     "test": "npm run testonly --",
-    "posttest": "npm run lint",
-    "lint": "tslint --type-check --project ./tsconfig.json --exclude test/**/*.ts",
     "watch": "tsc -w",
     "testonly": "mocha --reporter spec --full-trace ./dist/test/tests.js",
     "coverage": "node ./node_modules/istanbul/lib/cli.js cover _mocha -- --full-trace ./dist/test/tests.js",

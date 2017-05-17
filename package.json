@@ -21,12 +21,6 @@
   },
   "scripts": {
     "compile": "tsc",
-    "pretest": "npm run compile",
-    "test": "npm run testonly --",
-    "watch": "tsc -w",
-    "testonly": "mocha --reporter spec --full-trace ./dist/test/tests.js",
-    "coverage": "node ./node_modules/istanbul/lib/cli.js cover _mocha -- --full-trace ./dist/test/tests.js",
-    "postcoverage": "remap-istanbul --input coverage/coverage.raw.json --type lcovonly --output coverage/lcov.info",
     "browser-compile": "webpack --config \"./unpkg-webpack.config.js\"",
     "prepublish": "npm run compile && npm run browser-compile && rimraf src",
     "postinstall": "npm run compile && npm run browser-compile"

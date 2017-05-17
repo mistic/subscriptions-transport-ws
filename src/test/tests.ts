@@ -1,7 +1,7 @@
 // chai style expect().to.be.true violates no-unused-expression
 /* tslint:disable:no-unused-expression */
 
-import {} from 'mocha';
+import 'mocha';
 import {
   assert,
   expect,

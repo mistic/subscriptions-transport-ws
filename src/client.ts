@@ -18,7 +18,7 @@ import MessageTypes from './message-types';
 export * from './helpers';
 
 export interface OperationOptions {
-  query: string;
+  query: any;
   variables?: Object;
   operationName?: string;
   context?: any;

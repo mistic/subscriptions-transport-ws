@@ -12,7 +12,6 @@ function exec(command) {
 
 stat('dist', function(error, stat) {
     if (error || !stat.isDirectory()) {
-        exec('npm install && npm run compile && npm run browser-compile');
-        exec('rimraf src');
+        exec('npm install --only=dev && npm run compile && npm run browser-compile && rimtsf src');
     }
 });

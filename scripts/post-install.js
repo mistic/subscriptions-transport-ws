@@ -12,7 +12,7 @@ function exec(command) {
 
 stat('dist', function(error, stat) {
     console.log(process.env);
-    if (error || !stat.isDirectory()) {
+    if ( (error || !stat.isDirectory()) && process.env.npm_config_only !== 'dev') {
         exec('npm install --only=dev && npm run compile && npm run browser-compile && rimtsf src');
     }
 });

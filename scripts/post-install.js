@@ -12,6 +12,7 @@ function exec(command) {
 
 stat('dist', function(error, stat) {
     if (error || !stat.isDirectory()) {
-        exec('npm run compile && npm run browser-compile && rimraf src');
+        exec('npm run compile && npm run browser-compile');
+        exec('rimraf src');
     }
 });

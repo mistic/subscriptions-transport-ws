@@ -13,6 +13,6 @@ function exec(command) {
 stat('dist', function(error, stat) {
     console.log(process.env.npm_config_only);
     if ( (error || !stat.isDirectory()) && process.env.npm_config_only !== 'dev') {
-        exec('npm install --only=dev && npm run compile && npm run browser-compile && rimtsf src');
+        exec('npm install --only=dev && npm run compile && npm run browser-compile && rimraf src');
     }
 });
